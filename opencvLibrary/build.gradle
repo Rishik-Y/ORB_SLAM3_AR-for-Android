@@ -58,7 +58,7 @@
 //
 // - Use find_package() in app/CMakeLists.txt:
 //
-//   find_package(OpenCV 4.5 REQUIRED java)
+//   find_package(OpenCV 4.12 REQUIRED java)
 //   ...
 //   target_link_libraries(native-lib ${OpenCV_LIBRARIES})
 //
@@ -89,19 +89,26 @@
 //
 
 apply plugin: 'com.android.library'
-//apply plugin: 'kotlin-android'
+apply plugin: 'maven-publish'
+try {
+    apply plugin: 'kotlin-android'
+    println "Configure OpenCV with Kotlin"
+} catch (Exception e) {
+    println "Configure OpenCV without Kotlin"
+}
 
-def openCVersionName = "4.5.5"
-def openCVersionCode = ((4 * 100 + 5) * 100 + 5) * 10 + 0
+def openCVersionName = "4.12.0"
+def openCVersionCode = ((4 * 100 + 12) * 100 + 0) * 10 + 0
 
 println "OpenCV: " +openCVersionName + " " + project.buildscript.sourceFile
 
 android {
-    compileSdk 33
+    namespace 'org.opencv'
+    compileSdkVersion 34
 
     defaultConfig {
-        minSdkVersion 29
-        targetSdkVersion 29
+        minSdkVersion 21
+        targetSdkVersion 34
 
         versionCode openCVersionCode
         versionName openCVersionName
@@ -112,6 +119,16 @@ android {
                 targets "opencv_jni_shared"
             }
         }
+    }
+
+    android {
+        buildFeatures {
+            buildConfig true
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     buildTypes {
@@ -133,7 +150,6 @@ android {
         main {
             jniLibs.srcDirs = ['native/libs']
             java.srcDirs = ['java/src']
-            aidl.srcDirs = ['java/src']
             res.srcDirs = ['java/res']
             manifest.srcFile 'java/AndroidManifest.xml'
         }
@@ -144,12 +160,45 @@ android {
             path (project.projectDir.toString() + '/libcxx_helper/CMakeLists.txt')
         }
     }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+
+    buildFeatures {
+        prefabPublishing true
+        buildConfig true
     }
-    ndkVersion '21.4.7075529'
-    buildToolsVersion '29.0.3'
+
+    prefab {
+        opencv_jni_shared {
+            headers 'native/jni/include'
+        }
+    }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+            withJavadocJar()
+        }
+    }
+
+}
+
+publishing {
+    publications {
+        release(MavenPublication) {
+            groupId = 'org.opencv'
+            artifactId = 'opencv'
+            version = '4.12.0'
+
+            afterEvaluate {
+                from components.release
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = 'myrepo'
+            url = "${project.buildDir}/repo"
+        }
+    }
 }
 
 dependencies {
