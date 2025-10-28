@@ -15,6 +15,8 @@ CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -frtti -fopenmp -static-openmp")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -frtti -fopenmp -static-openmp")
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
 
 find_library( # Sets the name of the path variable.
               log-lib
@@ -39,7 +41,7 @@ include_directories(
 	${PROJECT_SOURCE_DIR}/src/main/cpp/boost/boost-1_72_0/boost
 	${PROJECT_SOURCE_DIR}/src/main/cpp/openssl/openssl-1.0.2s
 	${PROJECT_SOURCE_DIR}/src/main/cpp/openssl/openssl-1.0.2s/openssl
-	${PROJECT_SOURCE_DIR}/src/main/cpp/opencv/opencv-4.5.5/include			 
+	${PROJECT_SOURCE_DIR}/src/main/cpp/opencv/opencv-4.12.0/include
 )
 
 ADD_LIBRARY(g2o
