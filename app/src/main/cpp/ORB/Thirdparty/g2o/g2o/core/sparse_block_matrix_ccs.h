@@ -31,7 +31,6 @@
 #include <cassert>
 #include <Eigen/Core>
 
-#include "../../config.h"
 #include "matrix_operations.h"
 
 #if (__cplusplus >= 201103L) || (_MSC_VER >= 1600) // C++11
