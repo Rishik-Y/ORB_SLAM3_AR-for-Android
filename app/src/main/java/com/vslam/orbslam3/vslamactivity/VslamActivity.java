@@ -12,6 +12,10 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.IOException;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
@@ -20,9 +24,7 @@ import androidx.core.content.ContextCompat;
 
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.RealMatrix;
-import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
-import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.core.Mat;
 
@@ -41,6 +43,77 @@ public class VslamActivity extends Activity implements CameraBridgeViewBase.CvCa
     private TextView myTextView;
     public static double SCALE = 1;
     private static long count = 0;
+
+    /**
+     * Copy SLAM files from assets to internal storage on first launch
+     */
+    private void initializeSlamFiles() {
+        File slamDir = new File(getFilesDir(), "SLAM");
+        File vocabFile = new File(slamDir, "VOC/ORBvoc.bin");
+        File configFile = new File(slamDir, "Calibration/PARAconfig.yaml");
+
+        // Check if files already exist
+        if (vocabFile.exists() && configFile.exists()) {
+            Log.i(TAG, "SLAM files already exist, skipping copy");
+            return;
+        }
+
+        Log.i(TAG, "Copying SLAM files from assets...");
+
+        try {
+            // Create directories
+            new File(slamDir, "VOC").mkdirs();
+            new File(slamDir, "Calibration").mkdirs();
+
+            // Copy vocabulary file
+            if (!vocabFile.exists()) {
+                copyAssetFile("SLAM/VOC/ORBvoc.bin", vocabFile);
+                Log.i(TAG, "✓ Copied ORBvoc.bin (" + vocabFile.length() + " bytes)");
+            }
+
+            // Copy config file
+            if (!configFile.exists()) {
+                copyAssetFile("SLAM/Calibration/PARAconfig.yaml", configFile);
+                Log.i(TAG, "✓ Copied PARAconfig.yaml (" + configFile.length() + " bytes)");
+            }
+
+            Log.i(TAG, "SLAM files copied successfully");
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to copy SLAM files from assets", e);
+        }
+    }
+
+    /**
+     * Copy a single file from assets to destination
+     */
+    private void copyAssetFile(String assetPath, File destFile) throws IOException {
+        InputStream in = getAssets().open(assetPath);
+        FileOutputStream out = new FileOutputStream(destFile);
+
+        byte[] buffer = new byte[8192];
+        int read;
+        while ((read = in.read(buffer)) != -1) {
+            out.write(buffer, 0, read);
+        }
+
+        in.close();
+        out.flush();
+        out.close();
+    }
+
+    /**
+     * Get app-specific storage directory for SLAM files
+     */
+    private String getSlamDirectory() {
+        // Use app-specific external storage (doesn't need special permissions)
+        File slamDir = new File(getFilesDir(), "SLAM");
+        if (!slamDir.exists()) {
+            slamDir.mkdirs();
+            Log.i(TAG, "Created SLAM directory: " + slamDir.getAbsolutePath());
+        }
+        return slamDir.getAbsolutePath();
+    }
+
     /**
      * Called when the activity is first created.
      */
@@ -49,6 +122,8 @@ public class VslamActivity extends Activity implements CameraBridgeViewBase.CvCa
         Log.i(TAG, "called onCreate");
         //显示窗口初始化设置
         MatrixState.set_projection_matrix(445f, 445f, 319.5f, 239.500000f, 850, 480, 0.01f, 100f);
+        // Copy SLAM files from assets FIRST
+        initializeSlamFiles();
         super.onCreate(savedInstanceState);
         //hide the status bar
         this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -133,30 +208,50 @@ public class VslamActivity extends Activity implements CameraBridgeViewBase.CvCa
         boolean havePermission = getPermissionCamera(this);
         Log.i(TAG, "getPermissionCamera " + havePermission);
 
-        //读取PARAconfig.yaml配置文件
-        //String filepath = "/sdcard/Download/SLAM/Calibration/PARAconfig.yaml";
-        String filepath = "/storage/emulated/0/SLAM/Calibration/PARAconfig.yaml";
-        //String filepath  = getExternalFilesDir("SLAM").getPath() + "/Calibration/PARAconfig.yaml";
-        System.out.println("PARAconfig.yaml filepath="+filepath);
-        try {
-            readFileOnLine(filepath);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        // Test app-specific storage path
+        String slamDir = getSlamDirectory();
+        Log.i(TAG, "SLAM directory: " + slamDir);
+        Log.i(TAG, "Files should be placed at:");
+        Log.i(TAG, "  Vocabulary: " + slamDir + "/VOC/ORBvoc.bin");
+        Log.i(TAG, "  Config: " + slamDir + "/Calibration/PARAconfig.yaml");
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        if (!OpenCVLoader.initDebug()) {
-            Log.d(TAG, "Internal OpenCV library not found. Using OpenCV Manager for initialization");
-            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION, this, mLoaderCallback);
-        } else {
-            Log.d(TAG, "OpenCV library found inside package. Using it!");
-            mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
+
+        Log.i(TAG, "=== onResume called ===");
+
+        // Initialize OpenCV first
+        if (!OpenCVLoader.initLocal()) {
+            Log.e(TAG, "OpenCV initialization failed!");
+            glSurfaceView.onResume();
+            return;
         }
+
+        Log.i(TAG, "OpenCV loaded successfully");
+
+        // Check camera permission
+        boolean cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED;
+
+        Log.i(TAG, "Camera permission: " + (cameraGranted ? "GRANTED" : "DENIED"));
+
+        // Only enable camera if permissions are granted
+        if (cameraGranted) {
+            Log.i(TAG, "All permissions OK - enabling camera");
+            if (mOpenCvCameraView != null) {
+                mOpenCvCameraView.setCameraPermissionGranted();
+                mOpenCvCameraView.enableView();
+                Log.i(TAG, "Camera enableView() called");
+            }
+        } else {
+            Log.e(TAG, "Permissions not granted - camera NOT enabled");
+        }
+
         glSurfaceView.onResume();
     }
+
 
     @Override
     public void onPause() {
@@ -177,7 +272,7 @@ public class VslamActivity extends Activity implements CameraBridgeViewBase.CvCa
 
     @Override
     public void onCameraViewStarted(int width, int height) {
-        //mRgba = new Mat();
+        Log.i(TAG, "=== CAMERA STARTED! Width: " + width + ", Height: " + height + " ===");
     }
 
     @Override
@@ -191,7 +286,7 @@ public class VslamActivity extends Activity implements CameraBridgeViewBase.CvCa
         System.loadLibrary("native-lib");
     }
     //private native float[] CVTest(long matAddr, String timeStamp);  //调用 c++代码
-    private native float[] CVTest(long matAddr);  //调用 c++代码
+    private native float[] CVTest(long matAddr, String vocabPath, String configPath);  //调用 c++代码
 
     /**
      * 处理图像的函数，这个函数在相机刷新每一帧都会调用一次，而且每次的输入参数就是当前相机视图信息
@@ -203,7 +298,12 @@ public class VslamActivity extends Activity implements CameraBridgeViewBase.CvCa
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         Mat rgb = inputFrame.rgba();
-        float[] poseMatrix = CVTest(rgb.getNativeObjAddr()); //从slam系统获得相机位姿矩阵
+// Get app-specific paths for SLAM files
+        String slamDir = getSlamDirectory();
+        String vocabPath = slamDir + "/VOC/ORBvoc.bin";
+        String configPath = slamDir + "/Calibration/PARAconfig.yaml";
+
+        float[] poseMatrix = CVTest(rgb.getNativeObjAddr(), vocabPath, configPath); //从slam系统获得相机位姿矩阵
 
         if (poseMatrix.length != 0) {
             double[][] pose = new double[4][4];
@@ -352,26 +452,6 @@ public class VslamActivity extends Activity implements CameraBridgeViewBase.CvCa
     };
 
     /**
-     * OpenCV库链接加载管理回调函数
-     **/
-    private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
-        @Override
-        public void onManagerConnected(int status) {
-            switch (status) {
-                case LoaderCallbackInterface.SUCCESS: {
-                    Log.i(TAG, "OpenCV loaded successfully");
-                    mOpenCvCameraView.enableView();
-                }
-                break;
-                default: {
-                    super.onManagerConnected(status);
-                }
-                break;
-            }
-        }
-    };
-
-    /**
      * 打印Mat矩阵函数
      **/
     void printMatrix(RealMatrix input) {
@@ -381,6 +461,39 @@ public class VslamActivity extends Activity implements CameraBridgeViewBase.CvCa
                 System.out.print(matrixtoarray[i][j] + "\t");
             }
             System.out.print("\n");
+        }
+    }
+
+    /**
+     * Handle permission request result
+     */
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        Log.i(TAG, "onRequestPermissionsResult called with requestCode: " + requestCode);
+
+        if (requestCode == 0) {
+            // Check if all permissions granted
+            boolean allGranted = true;
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    allGranted = false;
+                    break;
+                }
+            }
+
+            if (allGranted) {
+                Log.i(TAG, "All permissions granted - enabling camera");
+                onCameraPermissionGranted();
+
+                // Enable camera view if OpenCV is already loaded
+                if (mOpenCvCameraView != null) {
+                    mOpenCvCameraView.enableView();
+                }
+            } else {
+                Log.e(TAG, "Permissions denied by user");
+            }
         }
     }
 

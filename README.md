@@ -18,30 +18,25 @@ To compile the project you may need to edit some configurations in the ***CMakeL
 ```cpp
 ## download Eigen, boost and OpenCV4Android
 
-1)download eigen-3.4.0 and crack its source files into the following directory
+1)Download eigen-3.4.0 and crack its source files into the following directory
  */app/src/main/cpp/Eigen/eigen-3.4.0/
  
-2)download boost-1_72_0 and crack its head files(boost directory) into the following directory
+2)Download boost-1_72_0 and crack its head files(boost directory) into the following directory
  */app/src/main/cpp/boost/boost-1_72_0/
  
-3)download opencv-4.5.5-android-sdk and crack its source files into the following directory
+3)Download opencv-4.12.0-android-sdk and extract it,
+ Go within the sdk folder and copy all its contents and directly paste into the following directory:
  */opencvLibrary/
  
-4)download opencv-4.5.5-android-sdk and crack its include files and libs files into the following directory
-4.1)from opencv-4.5.5-android-sdk/sdk/native/jni/include/ to
+4)Download opencv-4.5.5-android-sdk and crack its include files and libs files into the following directory
+4.1)From opencv-4.5.5-android-sdk/sdk/native/jni/include/ to
  */app/src/main/cpp/opencv/opencv-4.5.5/include/
-4.2)from opencv-4.5.5-android-sdk/sdk/native/libs/ to
+4.2)From opencv-4.5.5-android-sdk/sdk/native/libs/ to
  */app/src/main/jniLibs/
         
 ```
-(2)To run this APP you need to copy the *./SLAM* folder into your mobile phones, which contains the vocabulary file(ORBvoc.bin) and camera Calibration file(PARAconfig.yaml). Then you need to change the row " SLAM = new ORB_SLAM3::System("/storage/emulated/0/SLAM/VOC/ORBvoc.bin","/storage/emulated/0/SLAM/Calibration/PARAconfig.yaml",ORB_SLAM3::System::MONOCULAR,false);
-        "in the *./app/src/main/cpp/native-lib.cpp* to configure the correct path in your phone. You may also need to calibrate your phone's camera for better performance. More details of camera calibration can be found on google.
+(2)You may also need to calibrate your phone's camera for better performance. More details of camera calibration can be found on google.
 
-```cpp
-
- SLAM = new ORB_SLAM3::System("/storage/emulated/0/SLAM/VOC/ORBvoc.bin","/storage/emulated/0/SLAM/Calibration/PARAconfig-mono-orb3.yaml",ORB_SLAM3::System::MONOCULAR,false);
-        
-```
 (3)Due to the diversity of Android system version, I am not sure weather my configuration can work well on other Android devices. So you may also need to change some configurarions in the ***AndroidManifest.xml*** to make sure that the app have the authority to use the camera and file system.
 
 ## Framework & Results
