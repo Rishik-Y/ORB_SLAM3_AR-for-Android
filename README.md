@@ -18,19 +18,20 @@ To compile the project you may need to edit some configurations in the ***CMakeL
 ```cpp
 ## download Eigen, boost and OpenCV4Android
 
-1)download eigen-3.4.0 and crack its source files into the following directory
+1)Download eigen-3.4.0 and crack its source files into the following directory
  */app/src/main/cpp/Eigen/eigen-3.4.0/
  
-2)download boost-1_72_0 and crack its head files(boost directory) into the following directory
+2)Download boost-1_72_0 and crack its head files(boost directory) into the following directory
  */app/src/main/cpp/boost/boost-1_72_0/
  
-3)download opencv-4.5.5-android-sdk and crack its source files into the following directory
+3)Download opencv-4.12.0-android-sdk and extract it,
+ Go within the sdk folder and copy all its contents and directly paste into the following directory:
  */opencvLibrary/
  
-4)download opencv-4.5.5-android-sdk and crack its include files and libs files into the following directory
-4.1)from opencv-4.5.5-android-sdk/sdk/native/jni/include/ to
+4)Download opencv-4.5.5-android-sdk and crack its include files and libs files into the following directory
+4.1)From opencv-4.5.5-android-sdk/sdk/native/jni/include/ to
  */app/src/main/cpp/opencv/opencv-4.5.5/include/
-4.2)from opencv-4.5.5-android-sdk/sdk/native/libs/ to
+4.2)From opencv-4.5.5-android-sdk/sdk/native/libs/ to
  */app/src/main/jniLibs/
         
 ```
