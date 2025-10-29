@@ -108,7 +108,7 @@ android {
 
     defaultConfig {
         minSdkVersion 21
-        targetSdkVersion 34
+        compileSdk 34
 
         versionCode openCVersionCode
         versionName openCVersionName

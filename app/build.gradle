@@ -9,7 +9,7 @@ android {
     defaultConfig {
         applicationId "com.vslam.orbslam3.vslamactivity"
         minSdkVersion 29
-        targetSdkVersion 35
+        compileSdk 35
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
