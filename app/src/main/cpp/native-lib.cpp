@@ -6,6 +6,7 @@
 #include<iostream>
 #include<algorithm>
 #include<fstream>
+#include <errno.h>
 #include<chrono>
 #include "Plane.h"
 #include "Process.h"
@@ -61,19 +62,85 @@ cv::Point2f Camera2Pixel(cv::Mat poseCamera,cv::Mat mk){
 
 extern "C"
 JNIEXPORT jfloatArray JNICALL
-Java_com_vslam_orbslam3_vslamactivity_VslamActivity_CVTest(JNIEnv *env, jobject instance, jlong matAddr) {
+Java_com_vslam_orbslam3_vslamactivity_VslamActivity_CVTest(JNIEnv *env, jobject instance, jlong matAddr, jstring jVocabPath, jstring jConfigPath) {
 #ifndef BOWISBIN
     if(tframe == 0)
     txt_2_bin();
     tframe++;
 #else
 
-    if(!SLAM)
-    { 
-        SLAM = new ORB_SLAM3::System("/storage/emulated/0/SLAM/VOC/ORBvoc.bin","/storage/emulated/0/SLAM/Calibration/PARAconfig.yaml",ORB_SLAM3::System::MONOCULAR,false);
-       //imageScale = SLAM->GetImageScale();
-       
+if(!SLAM)
+{
+    LOGI("=== SLAM INITIALIZATION STARTING ===");
+
+    // Convert Java strings to C++ strings
+    const char* vocabPath = env->GetStringUTFChars(jVocabPath, nullptr);
+    const char* configPath = env->GetStringUTFChars(jConfigPath, nullptr);
+
+    LOGI("Vocabulary path: %s", vocabPath);
+    LOGI("Config path: %s", configPath);
+
+    // Test vocabulary file
+    std::ifstream vocabFile(vocabPath, std::ios::binary | std::ios::ate);
+    if (vocabFile.is_open()) {
+        std::streamsize vocabSize = vocabFile.tellg();
+        vocabFile.close();
+        LOGI("✓ Vocabulary file accessible, size: %ld bytes", (long)vocabSize);
+    } else {
+        LOGE("✗ Vocabulary file NOT accessible (errno: %d)", errno);
     }
+
+    // Test config file
+    std::ifstream configFile(configPath);
+    if (configFile.is_open()) {
+        char buffer[201];
+        configFile.read(buffer, 200);
+        buffer[configFile.gcount()] = '\0';
+        configFile.close();
+        LOGI("✓ Config file accessible");
+        LOGI("Config first 200 chars: %s", buffer);
+    } else {
+        LOGE("✗ Config file NOT accessible (errno: %d)", errno);
+    }
+
+    // Test OpenCV FileStorage
+    LOGI("Testing OpenCV FileStorage...");
+    try {
+        cv::FileStorage testFs(configPath, cv::FileStorage::READ);
+        if (testFs.isOpened()) {
+            LOGI("✓ OpenCV FileStorage opened successfully");
+            LOGI("Format detected: %d", testFs.getFormat());
+            testFs.release();
+        } else {
+            LOGE("✗ FileStorage isOpened() returned false");
+        }
+    } catch (const cv::Exception& e) {
+        LOGE("✗ FileStorage cv::Exception: %s", e.what());
+    } catch (...) {
+        LOGE("✗ FileStorage unknown exception");
+    }
+
+    // Try creating SLAM
+    LOGI("Creating ORB_SLAM3::System...");
+    try {
+        SLAM = new ORB_SLAM3::System(vocabPath, configPath, ORB_SLAM3::System::MONOCULAR, false);
+        LOGI("✓✓✓ ORB_SLAM3::System created successfully!");
+    } catch (const cv::Exception& e) {
+        LOGE("✗✗✗ SLAM failed with cv::Exception: %s", e.what());
+    } catch (const std::exception& e) {
+        LOGE("✗✗✗ SLAM failed with std::exception: %s", e.what());
+    } catch (...) {
+        LOGE("✗✗✗ SLAM failed with unknown exception");
+    }
+
+    // Release the Java strings
+    env->ReleaseStringUTFChars(jVocabPath, vocabPath);
+    env->ReleaseStringUTFChars(jConfigPath, configPath);
+
+    LOGI("=== SLAM INITIALIZATION COMPLETE ===");
+}
+
+
     cv::Mat *pMat = (cv::Mat*)matAddr;
     cv::Mat pose;
 
@@ -117,7 +184,7 @@ Java_com_vslam_orbslam3_vslamactivity_VslamActivity_CVTest(JNIEnv *env, jobject 
                     allmappoints.push_back(pos);
                 }
             }
-        
+
             std::vector<cv::Point2f> projectedPoints;
             cv::projectPoints(allmappoints, rVec, tVec, SLAM->mpTracker->mK, SLAM->mpTracker->mDistCoef, projectedPoints);
             for (size_t j = 0; j < projectedPoints.size(); ++j) {
@@ -215,4 +282,3 @@ Java_com_vslam_orbslam3_vslamactivity_VslamActivity_CVTest(JNIEnv *env, jobject 
    return resultArray;
 #endif
 }
-
